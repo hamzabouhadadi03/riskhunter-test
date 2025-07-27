@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/User";
 import { hashPassword , comparePassword } from "../utils/hash";
 import { sendVerificationEmail } from "../services/emailService";
-import { signAccessToken, signRefreshToken } from "../utils/jwt";
+import { signAccessToken, signRefreshToken , verifyRefreshToken } from "../utils/jwt";
 
 
 export const register = async (req: Request, res: Response) => {
@@ -115,5 +115,42 @@ export const login = async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Server error", error: err });
+  }
+};
+
+export const refreshToken = async (req: Request, res: Response) => {
+  const token = req.cookies.refreshToken;
+  if (!token) {
+    return res.status(401).json({ message: "No refresh token" });
+  }
+
+  try {
+    // Vérifie et décode le refresh token reçu depuis les cookies
+    const decoded = verifyRefreshToken(token) as { id: string };
+
+    // Récupère l'utilisateur et vérifie la correspondance avec le token stocké
+    const user = await User.findById(decoded.id);
+    if (!user || user.refreshToken !== token) {
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+
+    // Génère de nouveaux tokens et remplace l'ancien refresh token
+    const newAccessToken = signAccessToken(user.id);
+    const newRefreshToken = signRefreshToken(user.id);
+
+    user.refreshToken = newRefreshToken;
+    await user.save();
+
+    res.cookie("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(200).json({ accessToken: newAccessToken });
+  } catch (err) {
+    return res.status(403).json({ message: "Invalid or expired token" });
   }
 };

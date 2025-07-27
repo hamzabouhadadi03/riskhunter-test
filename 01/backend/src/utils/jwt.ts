@@ -16,3 +16,7 @@ export const signRefreshToken = (user: IUser) => {
     { expiresIn: "7d" }
   );
 };
+
+export const verifyRefreshToken = (token: string): any => {
+  return jwt.verify(token, process.env.JWT_REFRESH_SECRET!);
+};
