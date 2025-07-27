@@ -154,3 +154,45 @@ export const refreshToken = async (req: Request, res: Response) => {
     return res.status(403).json({ message: "Invalid or expired token" });
   }
 };
+
+
+export const logout = async (req: Request, res: Response) => {
+  const token = req.cookies.refreshToken;
+
+  if (!token) {
+    return res.status(400).json({ message: "No refresh token provided" });
+  }
+
+  try {
+    // On recherche l'utilisateur avec ce refreshToken
+    const user = await User.findOne({ refreshToken: token });
+
+    if (!user) {
+      // Même si l'utilisateur n'existe pas, on supprime quand même le cookie pour la sécurité
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        path: "/",
+      });
+
+      return res.status(200).json({ message: "Logged out successfully" });
+    }
+
+    // Supprime le refreshToken du user en base
+    user.refreshToken = undefined;
+    await user.save();
+
+    // Supprime le cookie côté client
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      path: "/",
+    });
+
+    return res.status(200).json({ message: "Logged out successfully" });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error", error: err });
+  }
+};
