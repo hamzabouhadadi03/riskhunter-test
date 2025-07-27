@@ -14,7 +14,7 @@ const getTransporter = () => {
 };
 
 export const sendVerificationEmail = async (to: string, token: string) => {
-  const url = `${process.env.CLIENT_URL}/verify-email?token=${token}`;
+  const url = `${process.env.CLIENT_URL}/api/auth/verify-email?token=${token}`;
   const transporter = getTransporter();
   await transporter.sendMail({
     from: `"Risk Hunter" <${process.env.EMAIL_USER}>`,

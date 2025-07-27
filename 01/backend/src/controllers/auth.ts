@@ -44,3 +44,36 @@ export const register = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
+export const verifyEmail = async (req: Request, res: Response) => {
+  const token = req.query.token as string;
+
+  if (!token) return res.status(400).json({ message: "Token is missing" });
+
+  try {
+    // 1. Vérifie le token JWT
+    const decoded = jwt.verify(token, process.env.EMAIL_VERIFICATION_SECRET!) as { email: string };
+
+    const user = await User.findOne({ email: decoded.email });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({ message: "Email already verified" });
+    }
+
+    if (user.emailVerificationToken !== token) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    // 2. Met à jour le user
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    await user.save();
+
+    return res.status(200).json({ message: "Email verified successfully" });
+  } catch (err) {
+    return res.status(400).json({ message: "Invalid or expired token", error: err });
+  }
+};
